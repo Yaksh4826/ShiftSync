@@ -1,10 +1,11 @@
 'use client'
-import { useRouter } from 'next/router'
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import React from 'react'
 import { z } from "zod"
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, Controller } from 'react-hook-form'
+import { toast } from 'sonner'
 import {
     Field,
     FieldDescription,
@@ -36,7 +37,7 @@ import { useAuth } from '../context/AuthContext'
 
 const SignUpPage = () => {
  
-    const [errorMessage ,setErrorMessage]= useState(" ")
+   
     const formSchema = z.object({
         name: z.string().min(3, "The name must me aleast 3 characters long").max(50, "Name has to be in range below 50 characters or above 3"),
         email: z.email("Please enter valid email"),
@@ -52,19 +53,25 @@ const SignUpPage = () => {
         },
         mode: "onChange"
     })
+
     const { signup } = useAuth()
+    const  isSubmitting = form.formState.isSubmitting;
+    const [errorMessage, setErrorMessage] = useState();
+
+ const router = useRouter();
+
     async function onSubmit({ name, email, password }) {
 
         const response = await signup(name, email, password);
         if (response?.success) {
-            toast.success("Welcome back! Syncing your data...", {
+            toast.success("Thank you for registering account, Please login to continue", {
                 position: "bottom-right",
             });
             // Redirect to the dashboard layout view
             router.push("/dashboard");
         } else {
-            setErrorMessage(result?.error || "Authentication failed. Please try again.");
-            toast.error(result?.error);
+            setErrorMessage(response?.message || "Authentication failed. Please try again.");
+            toast.error(result?.message);
         }
     }
 
@@ -75,14 +82,14 @@ const SignUpPage = () => {
 
 
 return (
-    <div>
+    <div className='flex justify-center items-center w-screen h-screen'>
         <form onSubmit={form.handleSubmit(onSubmit)} method='POST'>
-            <Card className="w-full max-w-sm">
+            <Card className="w-md gap-4 flex flex-col">
                 <CardHeader>
                     <CardTitle className="font-bold"> Register for an account</CardTitle>
                     <CardDescription> Sign up for the account student and start your productivity increase</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex flex-col p-3 gap-4">
                     <Controller
                         name='name'
                         control={form.control}

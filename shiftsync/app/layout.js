@@ -1,6 +1,16 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./context/AuthContext";
+import { Toaster } from "sonner";
+import { Figtree } from 'next/font/google'
+
+const figtree = Figtree({
+  subsets: ['latin'],
+  variable: '--font-figtree', // Creates the CSS variable mapping hook
+  display: 'swap',
+})
+
+
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,10 +31,12 @@ export default function RootLayout({ children }) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${figtree.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <AuthProvider>{children}</AuthProvider></body>
+        <AuthProvider>{children}</AuthProvider>
+        <Toaster richColors closeButton position="top-center" />
+        </body>
     </html>
   );
 }

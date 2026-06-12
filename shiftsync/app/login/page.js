@@ -32,15 +32,17 @@ import { Button } from '@/components/ui/button'
 import { navigate } from 'next/dist/client/components/segment-cache/navigation'
 import Link from 'next/link'
 import { useAuth } from '../context/AuthContext'
+import { useRouter } from 'next/navigation'
+import { ArrowLeftIcon } from "@radix-ui/react-icons"
 
 const formSchema = z.object({
-  email: z.string().email("Enter a valid email"), // Note: fixed z.email() typo to z.string().email() so it doesn't crash on render
+  email: z.email("Enter a valid email"), // Note: fixed z.email() typo to z.string().email() so it doesn't crash on render
   password: z.string().min(8).max(50),
 })
 
 const LoginPage = () => {
   // FIX: This hook belongs inside the component function body!
-  const [errorMessage, seterrorMessage] = useState("")
+  const [errorMessage, setErrorMessage] = useState("")
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -51,17 +53,32 @@ const LoginPage = () => {
     mode:"onChange"
   })
 
-  const {login} = useAuth();
-
+  const {login, user} = useAuth();
+ 
   const isSubmitting = form.formState.isSubmitting;
-
+const router = useRouter()
   async function onSubmit({email, password}) {
     const response = await login(email, password);
     console.log(response);
+    if(response?.success){
+      toast.success("Welcome back! Syncing your data...", {
+      position: "bottom-right",
+    });
+    router.push("/dashboard");
+
+    }
+    else {
+    const failMessage = response?.message || "Authentication failed.";
+    setErrorMessage(failMessage);
+    toast.error(failMessage);
+  }
+
+
   }
 
   return (
-    <div>
+    <div className='flex justify-center items-center w-screen h-screen gap-4 flex-col'>
+     { user && <Link href="/dashboard" className='w-md flex flex-start underline font-bold gap-1 text-cyan-600 items-center '> <ArrowLeftIcon height={17} width={17}> </ArrowLeftIcon>Dashboard </Link>}
       <form onSubmit={form.handleSubmit(onSubmit)} method='POST'>
 
         <Card className="w-full max-w-sm p-4">
@@ -128,6 +145,9 @@ const LoginPage = () => {
       </Button></CardDescription>
 <Button type="submit" vairant="default" className="w-full" >Login</Button>
 
+          {
+            errorMessage && (<div className="text-red-700 bg-red-50 p-2 rounded-md">{errorMessage}</div>)
+          }
         </CardFooter>
 
   
