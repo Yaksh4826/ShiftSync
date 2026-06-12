@@ -4,11 +4,11 @@ import bcrypt from "bcrypt"
 import jsonwebtoken from "jsonwebtoken"
 import { cookies } from "next/headers";
 
-
+import { connectDB } from "@/lib/dbConnect";
 
 
 export async function POST(request){
-
+await connectDB()
 let data  = await request.json()
 let {email , password} = data;
 

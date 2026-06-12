@@ -1,6 +1,6 @@
 "use client"
 import { useContext , createContext, useState, useEffect} from "react";
-import { useRouter } from "next/navigation";
+
 
 
 
@@ -20,7 +20,7 @@ export function AuthProvider({children}){
 
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
-    const router = useRouter();
+   
 
     // First we need to check if user have an active session
 
@@ -51,59 +51,70 @@ const checkAuth = async () => {
     
 
 
-  const login = async ({email, password})=>{
-    setLoading(true);
-    try{
+ const login = async (email, password) => {
+  try {
+    const response = await fetch("http://localhost:3000/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
 
-        const res = await fetch("/api/auth/login", {
-            method:POST,
-            body:JSON.stringify({email, password})
-        })
+    const data = await response.json();
 
-        const data = await res.json()
-           
-        if (res.success===false) throw new Error(data.message || "Login failed");
-        if(data.success===true){
-            setUser(data.user);
-            router.push("/dashboard")
-            return {sucess:true}
+    if (!response.ok) {
+      // Return the error message to the page component layout
+      return { success: false, error: data.message || "Failed to login" };
+    }
 
-        }
-    }
-    catch(e){
-return { success: false, error: err.message };
-    }
-    finally{
-     setLoading(false)   
-    }
+    // 1. Save your user profile state to context here
+    setUser(data.user); 
+
+    // 2. CRITICAL: Return a success flag so page.js knows it worked!
+    return data;
+
+  } catch (error) {
+    console.error("Login context network error:", error);
+    return { success: false, error: "Network error. Please try again." };
   }
+};
 
 
 
-
-  // signup
   const signup = async (name, email, password) => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
-      });
-      
-      const data = await res.json();
-      
-      if (res.success===false) throw new Error(data.message || "Signup failed");
-      
-      setUser(data.user);
-      router.push("/dashboard");
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
+  setLoading(true);
+  try {
+    const res = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, password }),
+    });
+    
+    const data = await res.json();
+    
+    // 1. If the server says NO (e.g., email taken, DB down, validation failed)
+    if (!res.ok) {
+      // STOP everything right here. Return the error directly.
+      return { success: false, error: data.message || "Signup failed" };
     }
-  };
+    
+    // 2. Double check that the database actually returned the user object
+    if (!data.user) {
+      return { success: false, error: "Account creation confirmed, but user profile could not be loaded." };
+    }
+    
+    // 3. ONLY if everything above passed successfully do we log them in
+    setUser(data.user);
+    
+    return { success: true, data };
+    
+
+  } catch (err) {
+    console.error("Signup network error:", err);
+    return { success: false, error: "Network error. Please try again." };
+  } finally {
+    setLoading(false);
+  }
+};
 
   // 4. Handle Logout Global Action
   const logout = async () => {
@@ -112,7 +123,7 @@ return { success: false, error: err.message };
       const res = await fetch("/api/auth/logout", { method: "POST" });
       if (res.ok) {
         setUser(null);
-        router.push("/login");
+      
       }
     } catch (err) {
       console.error("Logout failed:", err);

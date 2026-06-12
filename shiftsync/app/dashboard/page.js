@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { useState } from 'react'
 import { createWorker } from 'tesseract.js'
 
+
 const Page = () => {
   const { register, handleSubmit, watch, isSubmitting} = useForm()
   const selectedFile = watch('image')
