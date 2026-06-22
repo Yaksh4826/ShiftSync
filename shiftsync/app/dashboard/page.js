@@ -72,7 +72,8 @@ if (timeMatch) {
  
   // 5. Convert directly to clean MongoDB Schema ISO format
   const isoStartTime = new Date(startContext).toISOString(); 
-  const isoEndTime = new Date(endContext).toISOString();     
+  const isoEndTime = new Date(endContext).toISOString();   
+  console.log(`${isoStartTime} ${isoEndTime}`)  
 
 }
 // Now we have the date and time form the shift .
@@ -85,7 +86,7 @@ if (timeMatch) {
 
 });
 
-
+  
   console.log("-----------Text detection completed ------------")
   await worker.terminate();
 })();

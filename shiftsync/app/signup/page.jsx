@@ -71,7 +71,7 @@ const SignUpPage = () => {
             router.push("/dashboard");
         } else {
             setErrorMessage(response?.message || "Authentication failed. Please try again.");
-            toast.error(result?.message);
+            toast.error(response?.message);
         }
     }
 

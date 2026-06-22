@@ -14,4 +14,4 @@ const StudyProfileSchema = new mongoose.Schema({
 // Avoid duplicate courses within the same semester for a user
 StudyProfileSchema.index({ userId: 1, courseCode: 1, semester: 1 }, { unique: true });
 
-export default mongoose.models.StudyProfile || mongoose.model('StudyProfile', StudyProfileSchema);
+export default mongoose.modes.StudyProfile || mongoose.model('StudyProfile', StudyProfileSchema);

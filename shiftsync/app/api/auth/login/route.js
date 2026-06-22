@@ -17,6 +17,7 @@ let {email , password} = data;
 let foundedUser =  await User.findOne({email:email});
 
 if(!foundedUser){
+    console.log(foundedUser)
     return NextResponse.json({success:false, message: "Account does not exist please sign up"})
 }
 
@@ -40,7 +41,7 @@ cookieStore.set("token", token,  {
             maxAge: 60 * 60 * 24 * 7, // 1 week in seconds
             path: "/", // Accessible across the entire app
         })
-
+        console.log(foundedUser)
 
         return NextResponse.json({success: true , message:"Successfully logged in ", user: foundedUser})
 

@@ -59,7 +59,7 @@ export const config = {
   matcher: [
     "/dashboard/:path*",
     "/api/shifts/:path*",
-    "/api/job-profiles/:path*",
-    "/api/study-profiles/:path*"
+    "/api/jobprofiles/:path*",
+    "/api/studyprofiles/:path*"
   ],
 };
