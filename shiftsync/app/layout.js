@@ -2,7 +2,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./context/AuthContext";
 import { Toaster } from "sonner";
-import { Figtree } from 'next/font/google'
+import { Figtree } from 'next/font/google';
+import Navbar from "./components/Navbar";
 
 const figtree = Figtree({
   subsets: ['latin'],
@@ -34,7 +35,10 @@ export default function RootLayout({ children }) {
       className={`${figtree.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <AuthProvider>{children}</AuthProvider>
+        
+        <AuthProvider>
+          <Navbar/>
+          {children}</AuthProvider>
         <Toaster richColors closeButton position="top-center" />
         </body>
     </html>

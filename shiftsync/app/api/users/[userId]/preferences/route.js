@@ -31,14 +31,14 @@ export async function POST(request, { params }) {
         const data = request.json();
         const { wakeTime, sleepTime, preferredStudyHoursPerDay } = data;
 
-        await SchedulePreferences.insertOne({ userId: userId, wakeTime: wakeTime, sleepTime, sleepTime, preferredStudyHoursPerDay: preferredStudyHoursPerDay });
+       const preferences =await SchedulePreferences.insertOne({ userId: userId, wakeTime: wakeTime, sleepTime, sleepTime, preferredStudyHoursPerDay: preferredStudyHoursPerDay });
 
 
 
         return NextResponse.json({ success: true, preferences: preferences });
     } catch (e) {
-
-        return NextResponse.json({ success: false, error: e })
+      console.error(e)
+        return NextResponse.json({success:false})
     }
 
 
@@ -50,7 +50,7 @@ export async function PATCH(request, {params}) {
 
 try {
     await connectDB();
-    const {userId}= params;
+    const {userId}= await params;
     const body = await req.json();
     const {...updates } = body;
 

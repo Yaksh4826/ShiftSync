@@ -7,7 +7,8 @@ export async function POST(req, {params}) {
 
   const body = await req.json();
   const { subjectName, priority, color } = body;
-const {userId} = params;
+const {userId} =  await params;
+
   if (!userId || !subjectName) {
     return NextResponse.json(
       { error: "Missing fields" },

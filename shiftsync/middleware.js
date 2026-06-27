@@ -58,8 +58,14 @@ export async function middleware(request) {
 export const config = {
   matcher: [
     "/dashboard/:path*",
-    "/api/shifts/:path*",
-    "/api/jobprofiles/:path*",
-    "/api/studyprofiles/:path*"
+    "/priorities/:path*",
+    "/shifts/:path*",
+    "/preferences/:path*",
+    "/planner/:path*",
+    "/calendar/:path*",
+    "/profile/:path*",
+
+    // Api route protections
+    "/api/users/:path*",
   ],
 };

@@ -10,12 +10,15 @@ import { success } from "zod";
 export async function POST(request, {params}){
 try{
 await connectDB();
-const {userId} = params;
+const {userId} = await params;
 
-const data = request.json();
+const data = await request.json();
+
 const {shifts} = data;
+console.log(data.shifts)
 
 const formattedShifts = shifts.map((item)=>({
+    
         userId:userId,
         startDateTime: item.startDateTime,
         endDateTime:item.endDateTime
@@ -30,7 +33,7 @@ await Shifts.insertMany(formattedShifts);
 return NextResponse.json({success:true, message:`inserted ${formattedShifts.length} documents`})
 
 }catch(e){
-
+    console.error(e)
     return NextResponse.json({success:false, error:e})
 }
 

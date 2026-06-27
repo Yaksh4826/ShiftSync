@@ -53,7 +53,7 @@ const LoginPage = () => {
     mode:"onChange"
   })
 
-  const {login, user} = useAuth();
+  const {login, user, logout} = useAuth();
  
   const isSubmitting = form.formState.isSubmitting;
 const router = useRouter()
@@ -76,9 +76,18 @@ const router = useRouter()
 
   }
 
+
+  const handleLogout = async () => {
+    const reponse = await logout();
+    console.log(reponse)
+  }
+
+
+
+
   return (
     <div className='flex justify-center items-center w-screen h-screen gap-4 flex-col'>
-     { user && <Link href="/dashboard" className='w-md flex flex-start underline font-bold gap-1 text-cyan-600 items-center '> <ArrowLeftIcon height={17} width={17}> </ArrowLeftIcon>Dashboard </Link>}
+     { user && <div><Link href="/dashboard" className='w-md flex flex-start underline font-bold gap-1 text-cyan-600 items-center '> <ArrowLeftIcon height={17} width={17}> </ArrowLeftIcon>Dashboard </Link> <button onClick={handleLogout}>Logout</button></div>}
       <form onSubmit={form.handleSubmit(onSubmit)} method='POST'>
 
         <Card className="w-full max-w-sm p-4">

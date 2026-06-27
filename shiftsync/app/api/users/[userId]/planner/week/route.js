@@ -5,63 +5,62 @@ import StudyPriorities from "@/models/StudyPriorities";
 import SchedulePreferences from "@/models/SchedulePreferences";
 import Shifts from "@/models/Shifts";
 
+const MS = 60 * 1000;
+
+// convert HH:mm → minutes from midnight
+function timeToMinutes(time) {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
+// clamp a datetime into wake-sleep window
+function clampToDayBounds(date, wakeMin, sleepMin) {
+  const d = new Date(date);
+  const mins = d.getUTCHours() * 60 + d.getUTCMinutes();
+
+  if (mins < wakeMin) {
+    d.setUTCHours(Math.floor(wakeMin / 60), wakeMin % 60, 0, 0);
+  }
+
+  if (mins > sleepMin) {
+    return null; // outside usable day time
+  }
+
+  return d;
+}
+
+// check overlap
+function isValidBlock(start, end, sleepLimit) {
+  return start && end && end <= sleepLimit && start < end;
+}
+
 export async function POST(request, { params }) {
   try {
     await connectDB();
 
     const { userId } = await params;
     const body = await request.json();
-
     const { weekStartDate } = body;
 
-    // -------------------------------
-    // 1. VALIDATION
-    // -------------------------------
-    if (!userId) {
+    if (!userId || !weekStartDate) {
       return NextResponse.json(
-        { success: false, error: "Missing userId" },
-        { status: 400 }
-      );
-    }
-
-    if (!weekStartDate) {
-      return NextResponse.json(
-        { success: false, error: "Missing weekStartDate" },
+        { success: false, error: "Missing required fields" },
         { status: 400 }
       );
     }
 
     const weekStart = new Date(weekStartDate);
-
-    if (isNaN(weekStart.getTime())) {
-      return NextResponse.json(
-        { success: false, error: "Invalid weekStartDate" },
-        { status: 400 }
-      );
-    }
-
-    // -------------------------------
-    // 2. FETCH DATA SAFELY
-    // -------------------------------
-
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 7);
 
-    const shifts = await Shifts.find({
-      userId,
-      startDateTime: {
-        $gte: weekStart,
-        $lte: weekEnd
-      }
-    });
+    // -------------------------------
+    // FETCH DATA
+    // -------------------------------
+    const shifts = await Shifts.find({ userId });
 
     const priorities = await StudyPriorities.find({ userId });
 
     const preferencesDoc = await SchedulePreferences.findOne({ userId });
-
-    // -------------------------------
-    // 3. NULL SAFETY (VERY IMPORTANT)
-    // -------------------------------
 
     if (!preferencesDoc) {
       return NextResponse.json(
@@ -73,33 +72,34 @@ export async function POST(request, { params }) {
     const preferences = {
       wakeTime: preferencesDoc.wakeTime || "08:00",
       sleepTime: preferencesDoc.sleepTime || "22:00",
-      maxStudyBlockMinutes:
-        preferencesDoc.maxStudyBlockMinutes || 90,
-      breakMinutes: preferencesDoc.breakMinutes || 15
+      maxStudyBlockMinutes: preferencesDoc.maxStudyBlockMinutes || 90,
+      breakMinutes: preferencesDoc.breakMinutes || 15,
+      maxDailyStudyHours: preferencesDoc.maxDailyStudyHours || 6
     };
 
-    if (!priorities || priorities.length === 0) {
+    if (!priorities.length) {
       return NextResponse.json(
-        { success: false, error: "No study priorities found" },
+        { success: false, error: "No priorities found" },
         { status: 400 }
       );
     }
 
     // -------------------------------
-    // 4. PREP PRIORITIES
+    // PRIORITY SCORING
     // -------------------------------
+    const priorityWeight = { high: 3, medium: 2, low: 1 };
 
-    const priorityRank = { high: 3, medium: 2, low: 1 };
+    let subjects = priorities.map(p => ({
+      subjectName: p.subjectName,
+      weight: priorityWeight[p.priority] || 1,
+      remaining: (p.estimatedHours || 10) * 60
+    }));
 
-    const subjects = [...priorities].sort(
-      (a, b) =>
-        priorityRank[b.priority] - priorityRank[a.priority]
-    );
+    const totalWeight = subjects.reduce((a, s) => a + s.weight, 0);
 
     // -------------------------------
-    // 5. SHIFT PROCESSING
+    // SHIFT PROCESSING
     // -------------------------------
-
     const intervals = (shifts || [])
       .map(s => ({
         start: new Date(s.startDateTime),
@@ -108,9 +108,8 @@ export async function POST(request, { params }) {
       .sort((a, b) => a.start - b.start);
 
     // -------------------------------
-    // 6. FREE SLOT GENERATION
+    // FREE SLOT GENERATION
     // -------------------------------
-
     const freeSlots = [];
     let cursor = new Date(weekStart);
 
@@ -125,9 +124,7 @@ export async function POST(request, { params }) {
         });
       }
 
-      cursor = new Date(
-        Math.max(cursor, block.end)
-      );
+      cursor = new Date(Math.max(cursor, block.end));
     }
 
     if (cursor < weekEnd) {
@@ -138,49 +135,89 @@ export async function POST(request, { params }) {
     }
 
     // -------------------------------
-    // 7. STUDY ALLOCATION
+    // STUDY ALLOCATION (REALISTIC)
     // -------------------------------
-
     const studyBlocks = [];
-    let subjectIndex = 0;
+
+    const wakeMin = timeToMinutes(preferences.wakeTime);
+    const sleepMin = timeToMinutes(preferences.sleepTime);
+
+    const sleepLimit = new Date(weekStart);
+    sleepLimit.setUTCHours(Math.floor(sleepMin / 60), sleepMin % 60, 0, 0);
+
+    const maxDailyMs = preferences.maxDailyStudyHours * 60 * MS * 60;
+
+    const dailyTracker = {};
+
+    function canStudyMore(date) {
+      const key = date.toISOString().split("T")[0];
+      dailyTracker[key] = dailyTracker[key] || 0;
+      return dailyTracker[key] < maxDailyMs;
+    }
+
+    function addStudyTime(date, duration) {
+      const key = date.toISOString().split("T")[0];
+      dailyTracker[key] = (dailyTracker[key] || 0) + duration;
+    }
 
     for (const slot of freeSlots) {
       let pointer = new Date(slot.start);
 
       while (pointer < slot.end) {
-        const subject = subjects[subjectIndex];
+        const clampedStart = clampToDayBounds(pointer, wakeMin, sleepMin);
 
-        const maxBlock =
-          preferences.maxStudyBlockMinutes * 60 * 1000;
+        if (!clampedStart) break;
 
-        const nextEnd = new Date(
-          Math.min(
-            pointer.getTime() + maxBlock,
-            slot.end.getTime()
-          )
+        if (!canStudyMore(clampedStart)) {
+          pointer = new Date(clampedStart.getTime() + MS * 30);
+          continue;
+        }
+
+        const subject = subjects
+          .sort((a, b) => b.weight - a.weight)[0];
+
+        if (!subject) break;
+
+        const maxBlock = preferences.maxStudyBlockMinutes * MS;
+
+        let nextEnd = new Date(
+          Math.min(pointer.getTime() + maxBlock, slot.end.getTime())
         );
+
+        const duration = nextEnd - pointer;
+
+        if (!isValidBlock(pointer, nextEnd, sleepLimit)) {
+          break;
+        }
+
+        if (subject.remaining <= 0) {
+          subjects.shift();
+          continue;
+        }
+
+        const actualDuration = Math.min(duration, subject.remaining * MS);
+
+        const finalEnd = new Date(pointer.getTime() + actualDuration);
 
         studyBlocks.push({
           title: subject.subjectName,
           start: new Date(pointer),
-          end: nextEnd,
+          end: finalEnd,
           type: "study"
         });
 
-        pointer = new Date(
-          nextEnd.getTime() +
-            preferences.breakMinutes * 60 * 1000
-        );
+        subject.remaining -= actualDuration / MS;
+        addStudyTime(pointer, actualDuration);
 
-        subjectIndex =
-          (subjectIndex + 1) % subjects.length;
+        pointer = new Date(
+          finalEnd.getTime() + preferences.breakMinutes * MS
+        );
       }
     }
 
     // -------------------------------
-    // 8. FINAL OUTPUT
+    // OUTPUT
     // -------------------------------
-
     const weekPlan = {
       weekStart,
       weekEnd,
@@ -195,9 +232,8 @@ export async function POST(request, { params }) {
     };
 
     // -------------------------------
-    // 9. SAVE (UPSERT)
+    // SAVE
     // -------------------------------
-
     const saved = await PlannerCache.findOneAndUpdate(
       { userId, weekStartDate },
       {
@@ -209,14 +245,11 @@ export async function POST(request, { params }) {
       { upsert: true, new: true }
     );
 
-    // -------------------------------
-    // 10. RESPONSE
-    // -------------------------------
-
     return NextResponse.json({
       success: true,
-      weekPlan: saved
+      saved
     });
+
   } catch (err) {
     return NextResponse.json(
       {
